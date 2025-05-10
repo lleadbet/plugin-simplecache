@@ -14,18 +14,30 @@ import (
 
 // Config configures the middleware.
 type Config struct {
-	Path            string `json:"path" yaml:"path" toml:"path"`
-	MaxExpiry       int    `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
-	Cleanup         int    `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
-	AddStatusHeader bool   `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
+	Path                   string   `json:"path" yaml:"path" toml:"path"`
+	MaxExpiry              int      `json:"maxExpiry" yaml:"maxExpiry" toml:"maxExpiry"`
+	Cleanup                int      `json:"cleanup" yaml:"cleanup" toml:"cleanup"`
+	AddStatusHeader        bool     `json:"addStatusHeader" yaml:"addStatusHeader" toml:"addStatusHeader"`
+	AllowedHTTPMethods     []string `json:"allowedHTTPMethods" yaml:"allowedHTTPMethods" toml:"allowedHTTPMethods"`
+	SkipCacheControlHeader bool     `json:"skipCacheControlHeader" yaml:"skipCacheControlHeader" toml:"skipCacheControlHeader"`
+	DefaultTTL             int      `json:"defaultTTL" yaml:"defaultTTL" toml:"defaultTTL"`
+	URIs                   []Uri    `json:"uris" yaml:"uris" toml:"uris"`
+}
+
+type Uri struct {
+	Pattern string `json:"pattern" yaml:"pattern" toml:"pattern"`
+	TTL     int    `json:"ttl" yaml:"ttl" toml:"ttl"`
 }
 
 // CreateConfig returns a config instance.
 func CreateConfig() *Config {
 	return &Config{
-		MaxExpiry:       int((5 * time.Minute).Seconds()),
-		Cleanup:         int((5 * time.Minute).Seconds()),
-		AddStatusHeader: true,
+		MaxExpiry:              int((5 * time.Minute).Seconds()),
+		Cleanup:                int((5 * time.Minute).Seconds()),
+		AllowedHTTPMethods:     []string{"GET", "HEAD"},
+		DefaultTTL:             int((5 * time.Minute).Seconds()),
+		SkipCacheControlHeader: false,
+		AddStatusHeader:        true,
 	}
 }
 
@@ -132,8 +144,12 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (time.Duration, bool) {
 	reasons, expireBy, err := cachecontrol.CachableResponseWriter(r, status, w, cachecontrol.Options{})
-	if err != nil || len(reasons) > 0 {
+	if (err != nil || len(reasons) > 0) && !m.cfg.SkipCacheControlHeader {
 		return 0, false
+	}
+
+	if m.cfg.SkipCacheControlHeader {
+		expireBy = time.Now().Add(time.Duration(m.cfg.DefaultTTL) * time.Second)
 	}
 
 	expiry := time.Until(expireBy)

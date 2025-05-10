@@ -1,6 +1,6 @@
-module github.com/traefik/plugin-simplecache
+module github.com/lleadbet/plugin-simplecache
 
-go 1.15
+go 1.24
 
 require (
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35
