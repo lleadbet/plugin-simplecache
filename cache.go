@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"regexp"
@@ -93,9 +94,10 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 }
 
 type cacheData struct {
-	Status  int
-	Headers map[string][]string
-	Body    []byte
+	ExpiresAt time.Time
+	Status    int
+	Headers   map[string][]string
+	Body      []byte
 }
 
 // ServeHTTP serves an HTTP request.
@@ -118,6 +120,8 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if m.cfg.AddStatusHeader {
+				maxAge := data.ExpiresAt.Sub(time.Now()).Seconds()
+				w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", int(maxAge)))
 				w.Header().Set(cacheHeader, cacheHitStatus)
 			}
 			w.WriteHeader(data.Status)
@@ -139,9 +143,10 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := cacheData{
-		Status:  rw.status,
-		Headers: w.Header(),
-		Body:    rw.body,
+		ExpiresAt: time.Now().Add(expiry),
+		Status:    rw.status,
+		Headers:   w.Header(),
+		Body:      rw.body,
 	}
 
 	b, err = json.Marshal(data)
