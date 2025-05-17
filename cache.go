@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/pquerna/cachecontrol"
@@ -49,10 +50,11 @@ const (
 )
 
 type cache struct {
-	name  string
-	cache *fileCache
-	cfg   *Config
-	next  http.Handler
+	name   string
+	cache  *fileCache
+	cfg    *Config
+	uriMap map[*regexp.Regexp]int
+	next   http.Handler
 }
 
 // New returns a plugin instance.
@@ -70,11 +72,21 @@ func New(_ context.Context, next http.Handler, cfg *Config, name string) (http.H
 		return nil, err
 	}
 
+	uriMap := make(map[*regexp.Regexp]int)
+	for _, uri := range cfg.URIs {
+		re, err := regexp.Compile(uri.Pattern)
+		if err != nil {
+			continue // skip invalid regex patterns to avoid crashing the plugin
+		}
+		uriMap[re] = uri.TTL
+	}
+
 	m := &cache{
-		name:  name,
-		cache: fc,
-		cfg:   cfg,
-		next:  next,
+		name:   name,
+		cache:  fc,
+		cfg:    cfg,
+		uriMap: uriMap,
+		next:   next,
 	}
 
 	return m, nil
@@ -143,23 +155,50 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (m *cache) cacheable(r *http.Request, w http.ResponseWriter, status int) (time.Duration, bool) {
-	reasons, expireBy, err := cachecontrol.CachableResponseWriter(r, status, w, cachecontrol.Options{})
-	if (err != nil || len(reasons) > 0) && !m.cfg.SkipCacheControlHeader {
-		return 0, false
+	if !m.cfg.SkipCacheControlHeader {
+		reasons, expireBy, err := cachecontrol.CachableResponseWriter(r, status, w, cachecontrol.Options{})
+		if err != nil || len(reasons) > 0 {
+			return 0, false
+		}
+
+		if m.cfg.SkipCacheControlHeader {
+			expireBy = time.Now().Add(time.Duration(m.cfg.DefaultTTL) * time.Second)
+		}
+
+		expiry := time.Until(expireBy)
+		maxExpiry := time.Duration(m.cfg.MaxExpiry) * time.Second
+
+		if maxExpiry < expiry {
+			expiry = maxExpiry
+		}
+
+		return expiry, true
 	}
 
-	if m.cfg.SkipCacheControlHeader {
-		expireBy = time.Now().Add(time.Duration(m.cfg.DefaultTTL) * time.Second)
+	requestUrl := r.URL.String()
+	for re, ttl := range m.uriMap {
+		if re.MatchString(requestUrl) {
+			expiry := time.Duration(ttl) * time.Second
+			maxExpiry := time.Duration(m.cfg.MaxExpiry) * time.Second
+
+			if maxExpiry < expiry {
+				expiry = maxExpiry
+			}
+
+			return expiry, true
+		}
 	}
+	if m.cfg.DefaultTTL > 0 {
+		expiry := time.Duration(m.cfg.DefaultTTL) * time.Second
+		maxExpiry := time.Duration(m.cfg.MaxExpiry) * time.Second
 
-	expiry := time.Until(expireBy)
-	maxExpiry := time.Duration(m.cfg.MaxExpiry) * time.Second
+		if maxExpiry < expiry {
+			expiry = maxExpiry
+		}
 
-	if maxExpiry < expiry {
-		expiry = maxExpiry
+		return expiry, true
 	}
-
-	return expiry, true
+	return 0, false
 }
 
 func cacheKey(r *http.Request) string {

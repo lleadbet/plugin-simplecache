@@ -1,5 +1,5 @@
-displayName: Simple Cache
-summary: Simple cache plugin middleware caches responses on disk.
+displayName: Per-route Cache
+summary: Simple cache plugin focusing on per-route customization for REST services.
 type: middleware
 import: github.com/lleadbet/plugin-simplecache
 compatibility: TODO
