@@ -11,8 +11,8 @@ Static:
 
 ```toml
 [experimental.plugins.cache]
-  modulename = "github.com/traefik/plugin-simplecache"
-  version = "v0.2.1"
+  modulename = "github.com/lleadbet/traefik-plugin-cache-by-route"
+  version = "v0.0.3"
 ```
 
 Dynamic:

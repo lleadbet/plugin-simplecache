@@ -1,7 +1,7 @@
 displayName: Per-route Cache
 summary: Simple cache plugin focusing on per-route customization for REST services.
 type: middleware
-import: github.com/lleadbet/plugin-simplecache
+import: github.com/lleadbet/traefik-plugin-cache-by-route
 compatibility: TODO
 testData:
   path: /tmp

@@ -1,4 +1,4 @@
-module github.com/lleadbet/plugin-simplecache
+module github.com/lleadbet/traefik-plugin-cache-by-route
 
 go 1.24
 
