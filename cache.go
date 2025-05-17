@@ -37,7 +37,7 @@ func CreateConfig() *Config {
 		MaxExpiry:              int((5 * time.Minute).Seconds()),
 		Cleanup:                int((5 * time.Minute).Seconds()),
 		AllowedHTTPMethods:     []string{"GET", "HEAD"},
-		DefaultTTL:             int((5 * time.Minute).Seconds()),
+		DefaultTTL:             0,
 		SkipCacheControlHeader: false,
 		AddStatusHeader:        true,
 	}
