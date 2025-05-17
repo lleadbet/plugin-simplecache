@@ -1,5 +1,5 @@
-// Package plugin_simplecache is a plugin to cache responses to disk.
-package plugin_simplecache
+// Package traefik_plugin_cache_by_route is a plugin to cache responses to disk.
+package traefik_plugin_cache_by_route
 
 import (
 	"context"
